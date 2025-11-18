@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Liga Española - Premios y Sponsors</title>
+  <style>
+    body {font-family: Arial, sans-serif; margin: 0; padding: 1em; background: #fff;}
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    #logoFutbol {
+      width: 130px;
+      height: 130px;
+    }
+    #sponsors {
+      display: grid;
+      grid-template-columns: repeat(2, 130px);
+      grid-template-rows: repeat(2, 130px);
+      gap: 6px;
+      width: 260px;
+    }
+    #sponsors img {
+      width: 130px;
+      height: 130px;
+      object-fit: contain;
+      /* Eliminados bordes */
+      /* border: 2px solid #ccc; */
+      background: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      box-sizing: border-box;
+    }
+    #bote {
+      font-size: 2em;
+      font-weight: bold;
+      text-align: center;
+      margin: 10px 3px;
+      color: #b22222;
+      flex: 1;
+    }
+    #reloj {
+      font-size: 1.1em;
+      font-weight: bold;
+      text-align: right;
+      width: 180px;
+      font-family: 'Courier New', Courier, monospace;
+      color: #333;
+    }
+    #quiniela-container {
+      max-width: 1000px;
+      margin: 10px auto;
+    }
+    #temporada {
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.3em;
+      margin-bottom: 10px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 1em;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 7px;
+      text-align: center;
+    }
+    button {
+      padding: 4px 10px;
+      margin: 0 2px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    .selected {
+      background-color: #c00;
+      color: #fff;
+    }
+    #btnContinuar {
+      padding: 12px 40px;
+      font-size: 1.15em;
+      font-weight: bold;
+      margin: 10px auto;
+      display: block;
+      background: #2d7a18;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+    }
+    #btnContinuar:disabled {
+      background: #ccc;
+      color: #333;
+      cursor: not-allowed;
+    }
+    #modosJuego, #panelMarcador, #listaTemporadas {
+      text-align: center;
+      margin: 30px 15px ;
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <img id="logoFutbol" src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccerball.svg" alt="Balón de Fútbol"/>
+    <div id="bote">BOTE en caja: 100,000 Dh a 500,000 Dh por acertar los 15</div>
+    <div id="reloj"></div>
+    <div id="sponsors">
+      <img src="https://upload.wikimedia.org/wikipedia/en/8/81/2030_FIFA_World_Cup_Logo.svg" alt="2030 FIFA World Cup" title="2030 FIFA World Cup"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg" alt="Nike" title="Nike"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Maroc_Telecom_logo.png" alt="Maroc telecom" title="Maroc Telecom"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" title="Apple"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/Fondation_Mohammed_V_For_Solidarity_logo.svg" alt="Fondation Mohammed V For Solidarity" title="Fondation Mohammed V For Solidarity"/>
+      <img src="https://upload.wikimedia.org/wikipedia/fr/7/72/Puma.svg" alt="Puma" title="Puma"/>
+    </div>
+  </div>
+
+  <div id="quiniela-container">
+    <div id="temporada">Temporada 2025/2026</div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Local</th><th>VS</th><th>Visitante</th><th>Pronóstico</th></tr>
+      </thead>
+      <tbody id="quiniela-body"></tbody>
+    </table>
+    <button id="btnContinuar" disabled>Continuar</button>
+
+    <div id="modosJuego" style="display:none;">
+      <p>¡Has marcado todos los pronósticos y puedes continuar! Elige modo de juego:</p>
+      <button id="btnVirtual" style="margin:5px;">Modo Virtual Free Game Test (10 Dh Máx.)</button>
+      <button id="btnReal" style="margin:5px;">Modo Real (Pago Seguro)</button>
+    </div>
+
+    <div id="panelMarcador" style="display:none;">
+      <p id="infoGanancias"></p>
+    </div>
+
+    <div id="listaTemporadas"></div>
+  </div>
+
+  <script>
+    // Función para actualizar el reloj
+    function actualizarReloj() {
+      const ahora = new Date();
+      const opciones = {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      };
+      const tiempoFormateado = ahora.toLocaleDateString('es-ES', opciones);
+      document.getElementById('reloj').textContent = tiempoFormateado;
+    }
+    // Actualizar reloj cada segundo
+    setInterval(actualizarReloj, 1000);
+    actualizarReloj();
+
+    const MAX_APUESTA = 10; // 10 Dirham marroquíes (apuesta máxima)
+    const PREMIOS = 0.6; // 60% caja como premio
+    let caja = 100000; // Valor inicial caja, parte del bote mostrado
+    let pronosticos = Array(15).fill(null);
+    let modoSeleccionado = null;
+    const quinielaBody = document.getElementById("quiniela-body");
+
+    const premiosPorAciertos = {
+      11: 10,
+      12: 30,
+      13: 150,
+      14: [2000, 8000], // rango
+      15: [100000, 500000] // bote mayor
+    };
+
+    // Partidos 15 oficiales
+    const partidos = [
+      ["Deportivo", "R. Sociedad"], ["Rayo Vallecano", "Valencia"], ["Athletic Club", "Barcelona"],
+      ["Sporting", "R. Madrid"], ["Betis", "Villarreal"], ["Espanyol", "Getafe"], ["Levante", "Celta"],
+      ["Almería", "Leganés"], ["Mirandés", "Zaragoza"], ["Llagostera", "Osasuna"], ["Oviedo", "Lugo"],
+      ["Gimnàstic", "Albacete"], ["Mallorca", "Elche"], ["Ponferradina", "Tenerife"], ["Huesca", "Girona"]
+    ];
+
+    const fechaInicioTemporada = new Date("2025-12-01T20:00:00");
+
+    function crearQuiniela() {
+      partidos.forEach((p, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${p[0]}</td>
+          <td>vs</td>
+          <td>${p[1]}</td>
+          <td>
+            <button class="btn" data-partido="${i}" data-valor="1">1</button>
+            <button class="btn" data-partido="${i}" data-valor="X">X</button>
+            <button class="btn" data-partido="${i}" data-valor="2">2</button>
+          </td>`;
+        quinielaBody.appendChild(tr);
+      });
+      añadirEventosBotones();
+    }
+
+    function añadirEventosBotones() {
+      document.querySelectorAll(".btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const partido = parseInt(btn.dataset.partido);
+          pronosticos[partido] = btn.dataset.valor;
+          document.querySelectorAll(`.btn[data-partido="${partido}"]`).forEach(b => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          actualizarEstadoBotonContinuar();
+        });
+      });
+    }
+
+    function actualizarEstadoBotonContinuar() {
+      const todosMarcados = pronosticos.every(x => x !== null);
+      const antesInicio = new Date() < fechaInicioTemporada;
+      const boton = document.getElementById("btnContinuar");
+      boton.disabled = !todosMarcados || !antesInicio;
+      if (!antesInicio) boton.textContent = "Apuestas cerradas (temporada iniciada)";
+      else boton.textContent = "Continuar";
+    }
+
+    function mostrarProximasTemporadas() {
+      let html = "<h3>Próximas Temporadas</h3>";
+      [
+        { inicio: "2025-09-01T19:00:00", fin: "2026-05-31T23:59:00" }
+      ].forEach(t => {
+        html += `<div>Inicio: ${new Date(t.inicio).toLocaleString()} | Fin: ${new Date(t.fin).toLocaleString()}</div>`;
+      });
+      document.getElementById("listaTemporadas").innerHTML = html;
+    }
+
+    function calcularPremio(aciertos) {
+      if(aciertos < 11) return 0;
+      if(aciertos === 14) return `Entre ${premiosPorAciertos[14][0]} y ${premiosPorAciertos[14][1]} Dh`;
+      if(aciertos === 15) return `Entre ${premiosPorAciertos[15][0]} y ${premiosPorAciertos[15][1]} Dh`;
+      return `${premiosPorAciertos[aciertos]} Dh`;
+    }
+
+    document.getElementById("btnContinuar").addEventListener("click", () => {
+      document.getElementById("modosJuego").style.display = "block";
+    });
+
+    document.getElementById("btnVirtual").addEventListener("click", () => {
+      modoSeleccionado = "virtual";
+      document.getElementById("modosJuego").style.display = "none";
+      document.getElementById("panelMarcador").style.display = "block";
+
+      let aciertos = Math.floor(Math.random() * 16);
+      let premio = calcularPremio(aciertos);
+      document.getElementById("infoGanancias").textContent = `Modo Virtual. Aciertos simulados: ${aciertos}/15. Premio simulado: ${premio}`;
+    });
+
+    document.getElementById("btnReal").addEventListener("click", () => {
+      modoSeleccionado = "real";
+      document.getElementById("modosJuego").style.display = "none";
+
+      let correo = prompt("Introduce tu correo electrónico para vincular la apuesta:");
+      while (!correo || !correo.includes("@")) {
+        correo = prompt("Correo inválido. Introduce tu correo electrónico correcto:");
+      }
+
+      let metodo = prompt("Selecciona método de pago: Google Pay, PayPal o Visa International").toLowerCase();
+      if (!["google pay", "paypal", "visa international"].includes(metodo)) {
+        alert("Método no válido, se usará PayPal por defecto");
+        metodo = "paypal";
+      }
+
+      caja += MAX_APUESTA;
+      const apuestaReal = {
+        email: correo,
+        fecha: new Date(),
+        metodoPago: metodo,
+        pronosticos: [...pronosticos],
+        apuesta: MAX_APUESTA,
+      };
+      console.log("Apuesta real registrada:", apuestaReal);
+      alert(`Apuesta registrada. Caja actual: ${caja} Dh. Premios: acertando 11 aciertos o más se gana desde 10 Dh hasta el bote mayor.`);
+    });
+
+    setInterval(() => {
+      actualizarEstadoBotonContinuar();
+    }, 30000);
+
+    crearQuiniela();
+    mostrarProximasTemporadas();
+    actualizarEstadoBotonContinuar();
+
+  </script>
+</body>
+</html>
